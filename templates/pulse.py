@@ -1,4 +1,4 @@
-"""Beat-locked edge pulse over a still (parametrized version of pulse_beat.py). Run from the repo root.
+"""Beat-locked edge pulse over a still . Run from the repo root.
   python3 templates/pulse.py --bg <image> --out <mp4> [--bpm 144] [--seconds 5] [--fps 24]
 Output 720x1280 (9:16). No text, no logo (add them with overlay_video.py). Needs numpy, Pillow, ffmpeg."""
 import argparse, subprocess, numpy as np
