@@ -75,8 +75,35 @@ def scrim(canvas, y_top, y_bot, sig_y):
     base = np.asarray(canvas, dtype=np.float32) * (1 - a[..., None])
     canvas.paste(Image.fromarray(base.astype('uint8')))
 
+SIG_LABEL = "MARKDOWN RECORDS"
+
+def signature_block(lw):
+    """Layout of the brand signature for a logo lw px wide: .MD logo with SIG_LABEL below it, the label
+    spanning the logo width (tracking adjusted). Returns (mask, font, spacing, gap, block_height)."""
+    mk = logo_mask(lw); n = len(SIG_LABEL)
+    probe = ImageDraw.Draw(Image.new('L', (1, 1)))
+    nat = lambda f: sum(probe.textlength(ch, font=f) for ch in SIG_LABEL)
+    size = int(lw * 0.15)
+    while size > 8 and nat(mono(size)) + (n - 1) * size * 0.12 > lw: size -= 1
+    f = mono(size); sp = (lw - nat(f)) / (n - 1)
+    gap = int(mk.height * 0.20)
+    asc, desc = f.getmetrics()
+    return mk, f, sp, gap, mk.height + gap + asc
+
+def draw_signature(canvas, right, bottom, lw, fill=FILL):
+    """Brand signature at the bottom-right corner: logo, and SIG_LABEL below it at the logo's width.
+    right/bottom are the margins to the canvas edge. Returns the top y of the block."""
+    W, H = canvas.size
+    mk, f, sp, gap, bh = signature_block(lw)
+    x, y = W - right - lw, H - bottom - bh
+    logo = Image.new('RGBA', mk.size, fill + (0,)); logo.putalpha(mk)
+    canvas.paste(logo, (x, y), logo)
+    track(ImageDraw.Draw(canvas), x, y + mk.height + gap, SIG_LABEL, f, fill, sp)
+    return y
+
 def draw_piece(canvas, fmt, text, kicker=None, cta=None, signature=True, size_hint=None):
-    """Draw text block, optional kicker (series, mono) and CTA (mono) and the logo signature.
+    """Draw text block, optional kicker (series, mono) and CTA (mono) and the brand signature
+    (bottom-right, see draw_signature).
     Safe zones: story keeps top 14% and bottom 13% free of text/logo (Instagram UI)."""
     W, H = canvas.size; d = ImageDraw.Draw(canvas)
     m = int(W * 0.08)
@@ -84,8 +111,8 @@ def draw_piece(canvas, fmt, text, kicker=None, cta=None, signature=True, size_hi
         top, bottom = int(H * 0.14), int(H * 0.13); y0 = int(H * 0.30)
     else:
         top, bottom = int(H * 0.07), int(H * 0.07); y0 = int(H * 0.20)
-    lw = int(W * 0.20); mk = logo_mask(lw); lh = mk.height
-    sig_y = H - bottom - lh
+    lw = int(W * 0.20)
+    sig_y = H - bottom - signature_block(lw)[4]
     max_h = sig_y - y0 - int(H * 0.06) - (int(H*0.07) if cta else 0)
     start = size_hint or int(W * (0.105 if len(text) <= 40 else 0.078))
     f, lines, line_h = wrap_fit(d, text, W - 2*m - int(W*0.03), max_h, start, int(W * 0.05))
@@ -99,9 +126,5 @@ def draw_piece(canvas, fmt, text, kicker=None, cta=None, signature=True, size_hi
     if cta:
         track(d, m, y + int(H*0.035), cta, mono(int(W*0.026)), FILL, 3)
     if signature:
-        white = Image.new('RGBA', (lw, lh), (255, 255, 255, 0)); white.putalpha(mk)
-        canvas.paste(white, (m, sig_y), white)
-        tx = m + lw + int(W * 0.04)
-        track(d, tx, sig_y + int(lh*0.05), "MARKDOWN RECORDS", mono(int(W*0.024)), FILL, 3)
-        track(d, tx, sig_y + int(lh*0.60), "RAW SIGNALS. NO MERCY.", mono(int(W*0.018)), GREY, 2)
+        draw_signature(canvas, m, bottom, lw)
     return canvas
